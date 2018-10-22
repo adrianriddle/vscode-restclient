@@ -1,7 +1,7 @@
 "use strict";
 
 import { EOL } from 'os';
-import { OutputChannel, Range, StatusBarAlignment, StatusBarItem, ViewColumn, window } from 'vscode';
+import { OutputChannel, Range, StatusBarAlignment, StatusBarItem, Uri, ViewColumn, window, workspace } from 'vscode';
 import { ArrayUtility } from "../common/arrayUtility";
 import * as Constants from '../common/constants';
 import { RestClientSettings } from '../models/configurationSettings';
@@ -13,6 +13,7 @@ import { RequestVariableCacheValue } from "../models/requestVariableCacheValue";
 import { trace } from "../utils/decorator";
 import { HttpClient } from '../utils/httpClient';
 import { PersistUtility } from '../utils/persistUtility';
+import { RequestAllUtility } from "../utils/requestAllUtility";
 import { RequestStore } from '../utils/requestStore';
 import { RequestVariableCache } from "../utils/requestVariableCache";
 import { Selector } from '../utils/selector';
@@ -52,7 +53,7 @@ export class RequestController {
     }
 
     @trace('Request')
-    public async run(range: Range) {
+    public async run(range?: Range) {
         const editor = window.activeTextEditor;
         const document = getCurrentTextDocument();
         if (!editor || !document) {
@@ -89,8 +90,26 @@ export class RequestController {
         if (requestVariable) {
             httpRequest.requestVariableCacheKey = new RequestVariableCacheKey(requestVariable, document.uri.toString());
         }
-
         await this.runCore(httpRequest);
+    }
+
+    @trace('Request All')
+    public async runAll(uri: Uri) {
+        console.info('runAll');
+        const creationPath = RequestAllUtility.getClosestDirectory(uri.fsPath || uri.path);
+        if (!creationPath) {
+            window.showErrorMessage('Unable to find target directory.');
+            return;
+        }
+        console.info('creationPath', creationPath);
+        const files = RequestAllUtility.getAllFiles(creationPath);
+
+        for (const file of files) {
+            console.info('file', file);
+            const document = await workspace.openTextDocument(file);
+            await window.showTextDocument(document);
+            await this.run();
+        }
     }
 
     @trace('Rerun Request')
@@ -129,7 +148,8 @@ export class RequestController {
         // set http request
         try {
             let response = await this._httpClient.send(httpRequest);
-
+            console.info('status', response && response.statusCode);
+            console.info('response', response);
             // check cancel
             if (this._requestStore.isCancelled(<string>requestId)) {
                 return;
@@ -227,4 +247,6 @@ export class RequestController {
             `Body: ${filesize(response.bodySizeInBytes)}`
         ].join(EOL);
     }
+
+
 }

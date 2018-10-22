@@ -23,14 +23,19 @@ export class Selector {
         return selectedText;
     }
 
-    public getRequestVariableForSelectedText(editor: TextEditor, range: Range = null): string {
-        if (!editor || !editor.document) {
-            return null;
+    public getRequestVariableForSelectedText(editor?: TextEditor, range: Range = null, text?: string): string {
+        if (!text) {
+            if (!editor || !editor.document) {
+                return null;
+            }
+
+            let activeLine = !range ? editor.selection.active.line : range.start.line;
+            const delimitedText = this.getDelimitedText(editor.document.getText(), activeLine);
+
+            return Selector.getRequestVariableDefinitionName(delimitedText);
         }
 
-        let activeLine = !range ? editor.selection.active.line : range.start.line;
-        const delimitedText = this.getDelimitedText(editor.document.getText(), activeLine);
-
+        const delimitedText = this.getDelimitedText(text, 0);
         return Selector.getRequestVariableDefinitionName(delimitedText);
     }
 
